@@ -1,0 +1,418 @@
+<!DOCTYPE HTML>
+<html lang="ja">
+<head>
+	<meta charset="utf-8">
+	<title>あなたのチラシの裏</title>
+	<style>
+		body{
+			max-width:800px;
+			margin:0 auto;
+			padding:1em;
+			font-family: 'Meiryo';
+		}
+		header{
+			background-color: #333;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			-moz-box-shadow: 0 0 10px rgba(0,0,0,0.4);
+			-webkit-box-shadow: 0 0 10px rgba(0,0,0,0.4);
+			-o-box-shadow: 0 0 10px rgba(0,0,0,0.4);
+			-ms-box-shadow: 0 0 10px rgba(0,0,0,0.4);
+		}
+		header div{
+			max-width: 800px;
+			margin: auto;
+		}
+		header div h1{
+			float: left;
+			font-size: 120%;
+			color: #ccc;
+			letter-spacing:0.2em;
+			font-weight: normal;
+		}
+		header div nav{
+			float: right;
+		}
+		header div nav a{
+			display: block;
+			padding: 1em;
+			color: #ccc;
+			text-decoration: none;
+		}
+		header div nav a:hover{
+			color: #fff;
+		}
+		form{
+			text-align: right;
+			margin-top: 5em;
+		}
+		textarea{
+			width:100%;
+			height:5em;
+			margin:auto;
+			display:block;
+		}
+		.counter{
+			color:#999;
+		}
+		article{
+			border-bottom:1px solid #ccc;
+			padding:0.5em;
+		}
+		article p span, aside .id, aside .star{
+			color:#3399cc;
+			text-decoration:underline;
+			cursor:pointer;
+		}
+		aside{
+			font-size:90%;
+		}
+		aside span{
+			margin-right:1em;
+		}
+		aside .star{
+			text-decoration:none;
+		}
+		.mention{
+			position:absolute;
+			border:1px solid #ccc;
+			padding:0 0.5em 0.5em;
+			-moz-box-shadow: 3px 3px 3px rgba(0,0,0,0.4);
+			-webkit-box-shadow: 3px 3px 3px rgba(0,0,0,0.4);
+			-o-box-shadow: 3px 3px 3px rgba(0,0,0,0.4);
+			-ms-box-shadow: 3px 3px 3px rgba(0,0,0,0.4);
+			background-color:#fff;
+			z-index:10;
+			width:50%;
+			max-width:400px;
+		}
+		#setting{
+			display:none;
+		}
+		#setting .overlay{
+			background-color: rgba(0, 0, 0, 0.5);
+			width: 100%;
+			height: 100%;
+			position: fixed;
+			top: 0;
+			left: 0;
+			z-index: 100;
+		}
+		#setting section{
+			margin: 10%;
+			padding: 1em;
+			background-color: #fff;
+			-moz-box-shadow: 0 0 10px 1px rgba(0,0,0,0.4);
+			-webkit-box-shadow: 0 0 10px 1px rgba(0,0,0,0.4);
+			-o-box-shadow: 0 0 10px 1px rgba(0,0,0,0.4);
+			-ms-box-shadow: 0 0 10px 1px rgba(0,0,0,0.4);
+			position: fixed;
+			top: 0;
+			z-index: 200;
+		}
+		#setting section h1{
+			text-align: left;
+			border-bottom: 1px solid #ccc;
+			padding: 0.2em;
+			margin: 0 0 1em;
+			font-size: 120%;
+			font-weight: normal;
+			color: #999;
+		}
+		#setting section ul{
+			list-style-type: none;
+			padding: 0;
+			margin: 0;
+		}
+		#setting #hour{
+			width: 3em;
+		}
+	</style>
+	<script type="text/javascript">
+		var Setting = {
+			star: {
+				mark: '★',
+				message: 'このメッセージの保存を取り消す'
+			},
+			unstar: {
+				mark: '☆',
+				message: 'このメッセージを保存する'
+			}
+		};
+	</script>
+</head>
+<body>
+	<header>
+		<div>
+			<h1>あなたのチラシの裏</h1>
+			<nav><a href="javascript:void(0)" class="setting">設定</a></nav>
+		</div>
+	</header>
+	<form action="javascript:void(0)">
+		<textarea></textarea>
+		<span class="counter"></span>
+		<input type="submit" value="送信">
+	</form>
+	<section id="content">
+	</section>
+	<div id="setting">
+		<div class="overlay"></div>
+		<section>
+			<h1>設定</h1>
+			<ul>
+				<li><label>なお、このメモは<input type="text" id="hour">時間後に消去される</label></li>
+			</ul>
+		</section>
+	</div>
+	<script type="text/javascript">
+		var Chirashi = function() {
+			var self = this;
+			self.load();
+			for (var i=0; i<self.contents.length; i++) {
+				self.setContent(this.contents[i]);
+			}
+
+			var form = document.getElementsByTagName('form').item(0);
+			form.onsubmit = function() {
+				self.submit();
+				return false;
+			};
+			form.getElementsByTagName('textarea').item(0).onkeydown = function() {
+				self.counter(false);
+			};
+
+			document.getElementsByClassName('setting').item(0).onclick = self.showSetting;
+			document.getElementById('setting').getElementsByClassName('overlay').item(0).onclick = self.hideSetting;
+			document.getElementById('hour').value = self.settings.cleanHour;
+			document.getElementById('hour').onblur = self.changeSetting();
+
+			self.cleanUp();
+			self.counter(true);
+		}
+		Chirashi.prototype = {
+			contentsKey: 'contents',
+			contents: new Array(),
+			settingsKey: 'settings',
+			settings: {
+				cleanHour: 24
+			},
+
+			load: function() {
+				var contents = JSON.parse(localStorage.getItem(this.contentsKey));
+				if (contents != null) {
+					for (key in contents) {
+						this.contents[key] = contents[key];
+					}
+				}
+				var settings = JSON.parse(localStorage.getItem(this.settingsKey));
+				if (settings != null) {
+					for (key in settings) {
+						this.settings[key] = settings[key];
+					}
+				}
+			},
+
+			save: function() {
+				var contents = {};
+				for (var i=0; i<this.contents.length; i++) {
+					contents[i] = this.contents[i];
+				}
+				localStorage.setItem(this.contentsKey, JSON.stringify(contents));
+			},
+
+			saveSetting: function() {
+				localStorage.setItem(this.settingsKey, JSON.stringify(this.settings));
+			},
+
+			setContent: function(content) {
+				var date = new Date();
+				date.setTime(content.time);
+				var dateString = date.getFullYear()+'/'+(date.getMonth()+1)+'/'+date.getDate()+' '+date.getHours()+':'+date.getMinutes();
+				var body = content.body.replace(/(@[0-9]+)/g, '<span>$1</span>');
+				var article = document.createElement('article');
+				article.className = String(content.time);
+				var p = document.createElement('p');
+				p.innerHTML = body;
+				var span = p.getElementsByTagName('span');
+				for (var i=0; i<span.length; i++) {
+					span[i].onmouseover = this.showMention;
+					span[i].onmouseout =this.hideMention;
+				}
+				var aside = document.createElement('aside');
+				var dateObj = document.createElement('span');
+				dateObj.innerHTML = dateString;
+				var id = document.createElement('span');
+				id.className = 'id';
+				id.innerHTML = 'ID:'+content.time;
+				id.setAttribute('title', 'このメッセージに言及');
+				id.onclick = this.mention;
+				var star = document.createElement('span');
+				star.className = 'star';
+				if (content.starred) {
+					star.innerHTML = Setting.star.mark;
+					star.setAttribute('title', Setting.star.message);
+				} else {
+					star.innerHTML = Setting.unstar.mark;
+					star.setAttribute('title', Setting.unstar.message);
+				}
+				star.onclick = this.toggleStar(star, content);
+				aside.appendChild(star);
+				aside.appendChild(dateObj);
+				aside.appendChild(id);
+				article.appendChild(p);
+				article.appendChild(aside);
+				var content = document.getElementById('content');
+				content.insertBefore(article, content.firstChild);
+			},
+
+			submit: function() {
+				var content = {};
+				var date = new Date();
+				var textarea = document.getElementsByTagName('form').item(0).getElementsByTagName('textarea').item(0);
+				var body = textarea.value;
+				if (body.match(/^\s*$/) || body.length > 140) {
+					return false;
+				}
+				body = this._htmlspecialchars(body);
+				body = this._nl2br(body);
+				content.body = body;
+				content.time = date.getTime();
+				content.starred = false;
+				this.contents.push(content);
+				this.setContent(content);
+				this.save();
+				textarea.value = '';
+			},
+
+			mention: function() {
+				var textarea = document.getElementsByTagName('form').item(0).getElementsByTagName('textarea').item(0);
+				var val = textarea.value;
+				var id = this.innerHTML.substring(3);
+				textarea.focus();
+				textarea.value = '@'+id+' '+val;
+			},
+
+			showMention: function(e) {
+				var mention = document.getElementsByClassName('mention').item(0);
+				if (mention) {
+					mention.parentNode.removeChild(mention);
+				}
+				var id = this.innerHTML.substring(1);
+				var item = document.getElementsByClassName(String(id));
+				var body = document.getElementsByTagName('body').item(0);
+				if (item.length) {
+					var mention = document.createElement('div');
+					mention.className = 'mention';
+					mention.innerHTML = item.item(0).innerHTML;
+					mention.style.top = String(e.clientY + body.scrollTop + 20)+'px';
+					mention.style.left = String(e.clientX + body.scrollLeft + 10)+'px';
+					body.appendChild(mention);
+				}
+			},
+
+			hideMention: function() {
+				var mention = document.getElementsByClassName('mention').item(0);
+				if (mention) {
+					mention.parentNode.removeChild(mention);
+				}
+			},
+
+			showSetting: function() {
+				document.getElementById('setting').style.display = 'block';
+			},
+
+			hideSetting: function() {
+				document.getElementById('setting').style.display = 'none';
+			},
+
+			changeSetting: function() {
+				var self = this;
+				return function() {
+					var hour = document.getElementById('hour').value;
+					if (parseInt(hour) > 0) {
+						self.settings.cleanHour = parseInt(hour);
+					}
+					self.saveSetting();
+				}
+			},
+
+			toggleStar: function(star, content) {
+				var self = this;
+				return function() {
+					if (content.starred) {
+						content.starred = false;
+						star.innerHTML = Setting.unstar.mark;
+						star.setAttribute('title', Setting.unstar.message);
+					} else {
+						content.starred = true;
+						star.innerHTML = Setting.star.mark;
+						star.setAttribute('title', Setting.star.message);
+					}
+					self.save();
+				}
+			},
+
+			import: function() {
+				var self = this;
+				return function() {
+					var importJson = this.parentNode.getElementsByTagName('textarea').item(0).value;
+					try {
+						 self.contents = JSON.parse(importJson);
+						 self.save();
+					} catch (e) {
+
+					}
+				}
+			},
+
+			cleanUp: function() {
+				var date = new Date();
+				var currentTime = date.getTime();
+				for (var i=0; i<this.contents.length; i++) {
+					if (this.contents[i].time > currentTime - (this.settings.cleanHour*60*60*1000)) {
+						break;
+					}
+					if (!this.contents[i].starred) {
+						var item = document.getElementsByClassName(String(this.contents[i].time)).item(0);
+						item.parentNode.removeChild(item);
+						this.contents.splice(i, 1);
+					}
+				}
+				this.save();
+				(function(self) {
+					setTimeout(function() {self.cleanUp()}, 60*1000);
+				})(this);
+			},
+
+			counter: function(timerset) {
+				var form = document.getElementsByTagName('form').item(0);
+				var limit = 140 - form.getElementsByTagName('textarea').item(0).value.length;
+				var counter = form.getElementsByClassName('counter').item(0);
+				if (limit < 0) {
+					counter.style.color = 'red';
+				} else {
+					counter.style.color = '#000';
+				}
+				counter.innerHTML = limit;
+				if (timerset) {
+					(function(self) {
+						setTimeout(function() {self.counter(true)}, 500);
+					})(this);
+				}
+			},
+
+			_htmlspecialchars: function(text) {
+				return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+			},
+
+			_nl2br: function(text) {
+				return text.replace(/\r\n/g, "\n").replace(/\r|\n/g, '<br>');
+			}
+		};
+
+		new Chirashi();
+	</script>
+</body>
+</html>
